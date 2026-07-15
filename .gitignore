@@ -1,0 +1,26 @@
+# macOS System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+
+# Windows System Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Xcode / Build Outputs
+build/
+DerivedData/
+*.app/
+*.xcodeproj/
+
+# Personal Database
+records.json
+
+# Local User Settings / Cache
+.idea/
+.vscode/
+*.xcworkspace/
+xcuserdata/

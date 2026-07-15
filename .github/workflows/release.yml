@@ -1,0 +1,43 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger build when pushing tags like v3.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Publish Release
+    runs-on: macos-13
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Make Build Script Executable
+        run: chmod +x build.sh
+
+      - name: Compile and Bundle Application
+        run: ./build.sh
+
+      - name: Package App Bundle into ZIP
+        run: |
+          zip -yr TimeTracker.zip TimeTracker.app
+
+      - name: Create DMG Installer
+        run: |
+          hdiutil create -fs HFS+ -srcfolder TimeTracker.app -volname "TimeTracker" TimeTracker.dmg
+
+      - name: Publish Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            TimeTracker.zip
+            TimeTracker.dmg
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

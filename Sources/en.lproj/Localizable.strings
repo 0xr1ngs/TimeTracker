@@ -1,0 +1,21 @@
+/* English */
+"今日概览" = "Today's Overview";
+"工作时长" = "Work Time";
+"休息时长" = "Rest Time";
+"控制中心 (概览 & 设置)" = "Dashboard (Overview & Settings)";
+"退出" = "Quit";
+"外观与显示" = "Appearance & Display";
+"菜单栏时间格式" = "Menu Bar Time Format";
+"健康守护" = "Health Guard";
+"开启久坐提醒" = "Enable Sedentary Reminder";
+"连续工作多久后提醒？" = "Remind after continuous work?";
+"提醒方式" = "Reminder Style";
+"系统集成" = "System Integration";
+"开机自动启动" = "Launch at Login";
+"该休息了！" = "Time to Rest!";
+"您已经连续工作了很长时间，\n起来活动一下，喝口水休息一下眼睛吧。" = "You have been working for a long time.\nStand up, stretch, and grab a drink.";
+"我知道了" = "Got it";
+"休息提醒" = "Rest Reminder";
+"Short (2h 15m)" = "Short (2h 15m)";
+"Digital (02:15)" = "Digital (02:15)";
+"Minutes (135m)" = "Minutes (135m)";
