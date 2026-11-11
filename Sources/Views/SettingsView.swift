@@ -49,9 +49,35 @@ struct SettingsView: View {
                 }
                 .pickerStyle(MenuPickerStyle())
             } header: {
-                Text(isEN ? "Appearance & Locale 🌐" : "外观与本地化 🌐")
+                Text(isEN ? "Appearance & language" : "外观与语言")
             }
             
+            Section {
+                Toggle(isOn: $timeManager.restReminderEnabled) {
+                    Label(isEN ? "Rest reminders" : "开启分级休息提醒", systemImage: "bell.badge")
+                }
+                VStack(alignment: .leading, spacing: 14) {
+                    reminderRow(minutes: "30", icon: "bell", color: .blue,
+                                title: isEN ? "A gentle nudge" : "轻轻提醒一下",
+                                detail: isEN ? "A quiet system notification. Keep your flow." : "系统小窗通知，不加提示音。")
+                    reminderRow(minutes: "60", icon: "figure.walk", color: .orange,
+                                title: isEN ? "Time to recharge" : "醒目提醒，该起身了",
+                                detail: isEN ? "A centered card and one soft chime." : "居中休息卡片，配一次轻提示音。")
+                    Divider()
+                    Text(isEN ? "After one hour, repeat every 15 minutes. You can snooze for 10 minutes or start a break." : "超过一小时后，每 15 分钟提醒一次；可选择开始休息，或 10 分钟后再提醒。")
+                        .font(.system(size: 12)).foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button { timeManager.previewRestReminder() } label: {
+                        Label(isEN ? "Preview break card" : "预览醒目提醒", systemImage: "rectangle.on.rectangle")
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.vertical, 8)
+                .opacity(timeManager.restReminderEnabled ? 1 : 0.6)
+            } header: {
+                Text(isEN ? "A healthier rhythm" : "工作与休息节奏")
+            }
+
             Section {
                 // Work Goal
                 VStack(alignment: .leading, spacing: 8) {
@@ -173,7 +199,7 @@ struct SettingsView: View {
                     }
                 }
             } header: {
-                Text(isEN ? "Daily Goals (Click Row to Edit) 🎯" : "每日目标设定 (点击行展开滑动条) 🎯")
+                Text(isEN ? "Daily goals · click to adjust" : "每日目标 · 点击调整")
             }
             
             Section {
@@ -305,54 +331,7 @@ struct SettingsView: View {
                     .padding(.leading, 26)
                 }
             } header: {
-                Text(isEN ? "Smart Logic 🧠" : "智能分析与判定 🧠")
-            }
-            
-            Section {
-                Toggle(isOn: $timeManager.restReminderEnabled) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "figure.walk.circle.fill").foregroundColor(.orange)
-                        Text(isEN ? "Sedentary Reminder" : "开启久坐提醒")
-                    }
-                }
-                
-                if timeManager.restReminderEnabled {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text(isEN ? "Continuous work threshold" : "连续工作多久后提醒？")
-                                .foregroundColor(.secondary)
-                                .font(.system(size: 13))
-                            Spacer()
-                            Text(isEN ? "\(Int(timeManager.restReminderInterval)) mins" : "\(Int(timeManager.restReminderInterval)) 分钟")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-                        }
-                        
-                        Slider(value: $timeManager.restReminderInterval, in: 5...120, step: 5)
-                            .tint(.orange)
-                        
-                        HStack {
-                            Text(isEN ? "Reminder Style" : "提醒方式")
-                                .foregroundColor(.secondary)
-                                .font(.system(size: 13))
-                            Spacer()
-                            Picker("", selection: $timeManager.reminderStyle) {
-                                ForEach(ReminderStyle.allCases) { style in
-                                    Text(style.description).tag(style)
-                                }
-                            }
-                            .pickerStyle(SegmentedPickerStyle())
-                            .frame(width: 150)
-                        }
-                        .padding(.top, 4)
-                    }
-                    .padding(.leading, 26)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-                }
-            } header: {
-                Text(isEN ? "Health Guard ☕️" : "健康守护 ☕️")
+                Text(isEN ? "Automatic tracking" : "自动记录")
             }
             
             Section {
@@ -463,7 +442,7 @@ struct SettingsView: View {
                     }
                 }
             } header: {
-                Text(isEN ? "System & Integrations ⚙️" : "系统与集成 ⚙️")
+                Text(isEN ? "System & integrations" : "系统与集成")
             }
             
             Section {
@@ -475,7 +454,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
             } header: {
-                Text(isEN ? "Data Management 📁" : "数据管理 📁")
+                Text(isEN ? "Your data" : "数据管理")
             }
         }
         .formStyle(.grouped)
@@ -490,6 +469,21 @@ struct SettingsView: View {
     }
     
     // Formatting lunch times to double format: 12.5 -> 12:30, 12.0 -> 12:00
+    private func reminderRow(minutes: String, icon: String, color: Color, title: String, detail: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).foregroundColor(color)
+                .frame(width: 34, height: 34)
+                .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(detail).font(.system(size: 12)).foregroundColor(.secondary)
+            }
+            Spacer()
+            Text(minutes + " min").font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(color)
+        }
+    }
+
     private func formatLunchTime(_ val: Double) -> String {
         let hour = Int(val)
         let mins = val.truncatingRemainder(dividingBy: 1) == 0 ? "00" : "30"

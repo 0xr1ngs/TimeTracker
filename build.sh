@@ -8,6 +8,11 @@ APP_DIR="$APP_NAME.app"
 MACOS_DIR="$APP_DIR/Contents/MacOS"
 RESOURCES_DIR="$APP_DIR/Contents/Resources"
 
+if [ ! -f "Resources/AppIconReference.icns" ]; then
+    echo "Missing required application icon: Resources/AppIconReference.icns" >&2
+    exit 1
+fi
+
 echo "Cleaning up previous build directories..."
 rm -rf "$APP_DIR"
 
@@ -22,9 +27,7 @@ sed -i '' 's/$(PRODUCT_BUNDLE_IDENTIFIER)/com.antigravity.TimeTracker/g' "$APP_D
 sed -i '' 's/$(PRODUCT_NAME)/TimeTracker/g' "$APP_DIR/Contents/Info.plist"
 sed -i '' 's/$(DEVELOPMENT_LANGUAGE)/en/g' "$APP_DIR/Contents/Info.plist"
 
-if [ -f "Resources/AppIcon.icns" ]; then
-    cp Resources/AppIcon.icns "$RESOURCES_DIR/AppIcon.icns"
-fi
+cp Resources/AppIconReference.icns "$RESOURCES_DIR/AppIconReference.icns"
 
 echo "Compiling Swift source files..."
 SWIFT_FILES=$(find Sources -name "*.swift")
@@ -38,5 +41,12 @@ swiftc \
 
 echo "Signing the application bundle locally..."
 codesign -f -s - "$APP_DIR"
+codesign --verify --deep --strict "$APP_DIR"
+
+# A local Finder override reproduces the installed reference app exactly.
+# Release builds keep their bundled icon and omit Finder metadata.
+if [ "${MATCH_REFERENCE_FINDER_ICON:-0}" = "1" ]; then
+    swift Resources/apply_finder_icon.swift Resources/AppIconReference.icns "$APP_DIR"
+fi
 
 echo "Build successful! Application generated at: $(pwd)/$APP_DIR"

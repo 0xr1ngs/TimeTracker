@@ -87,3 +87,11 @@ The codebase is organized cleanly following native SwiftUI MVVM (Model-View-View
 ## 📄 License
 
 This project is open-sourced under the **MIT License**. Feel free to fork, customize, and submit PRs to build your ultimate time-tracking assistant!
+
+## Progressive rest reminders
+
+Work continuously for 30 minutes to receive a quiet system notification. At 60 minutes, a prominent centered card and a soft chime suggest a break. Start a break or snooze for 10 minutes; otherwise reminders repeat every 15 minutes. Work/rest transitions, screen locking, and lunch exemptions reset the schedule. The dashboard shows the current session and next reminder countdown. Settings includes a card preview.
+
+Run `bash Tests/run_checks.sh` for reminder regressions and offscreen UI previews in `build/previews/`. Tests do not start background services or read real records.
+
+For a local Finder icon matching the installed reference, use `MATCH_REFERENCE_FINDER_ICON=1 ./build.sh`. This adds Finder metadata after signing and verification; strict signature checks reject that metadata. Omit the option for distribution. See `Resources/AppIconReference.md`.

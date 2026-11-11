@@ -13,9 +13,10 @@ targets:
       path: Info.plist
       properties:
         LSUIElement: true
+        CFBundleIconFile: AppIconReference
     settings:
       base:
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconReference
         CODE_SIGN_IDENTITY: "-"
         DEVELOPMENT_TEAM: ""
         ENABLE_HARDENED_RUNTIME: YES

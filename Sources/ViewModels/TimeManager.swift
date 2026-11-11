@@ -24,24 +24,11 @@ enum TimeFormat: String, CaseIterable, Identifiable {
     
     var id: String { self.rawValue }
     var description: String {
-        switch self {
-        case .short: return NSLocalizedString("Short (2h 15m)", comment: "")
-        case .digital: return NSLocalizedString("Digital (02:15)", comment: "")
-        case .minutes: return NSLocalizedString("Minutes (135m)", comment: "")
-        }
-    }
-}
-
-enum ReminderStyle: String, CaseIterable, Identifiable {
-    case notification = "notification"
-    case popup = "popup"
-    
-    var id: String { self.rawValue }
-    var description: String {
         let isEN = UserDefaults.standard.string(forKey: "appLanguage") == "en"
         switch self {
-        case .notification: return isEN ? "System Notification" : "系统通知"
-        case .popup: return isEN ? "Center Popup" : "居中弹窗"
+        case .short: return isEN ? "Short (2h 15m)" : "简短（2h 15m）"
+        case .digital: return isEN ? "Digital (02:15)" : "数字（02:15）"
+        case .minutes: return isEN ? "Minutes (135m)" : "分钟（135m）"
         }
     }
 }
@@ -51,6 +38,19 @@ class TimeManager: ObservableObject {
     @Published var totalWorkTimeToday: TimeInterval = 0
     @Published var totalRestTimeToday: TimeInterval = 0
     @Published var isWorking: Bool = true
+    @Published var currentSessionElapsed: TimeInterval = 0
+    @Published var isRestReminderPresented = false
+    @Published var isReminderPreview = false
+    @Published var isLunchBreakExempt = false
+    @Published private(set) var reminderSchedule = RestReminderSchedule()
+
+    var nextReminderRemaining: TimeInterval {
+        max(0, reminderSchedule.nextThreshold(elapsed: currentSessionElapsed) - currentSessionElapsed)
+    }
+
+    var focusProgress: Double {
+        focusDuration > 0 ? min(1, max(0, focusTimeRemaining / focusDuration)) : 0
+    }
     
     // Focus Mode
     @Published var isFocusModeActive: Bool = false
@@ -69,9 +69,11 @@ class TimeManager: ObservableObject {
     
     // User Settings
     @AppStorage("timeFormat") var timeFormat: TimeFormat = .short
-    @AppStorage("restReminderEnabled") var restReminderEnabled: Bool = false
-    @AppStorage("restReminderInterval") var restReminderInterval: Double = 45 // minutes
-    @AppStorage("reminderStyle") var reminderStyle: ReminderStyle = .notification
+    @AppStorage("restReminderEnabled") var restReminderEnabled: Bool = false {
+        didSet {
+            if !restReminderEnabled { resetReminderState() }
+        }
+    }
     @AppStorage("workGoalHours") var workGoalHours: Double = 8.0
     @AppStorage("restGoalMinutes") var restGoalMinutes: Double = 60.0
     @AppStorage("focusGoalSessions") var focusGoalSessions: Int = 4
@@ -93,11 +95,11 @@ class TimeManager: ObservableObject {
     }
     
     private var currentSessionStartTime: Date = Date()
-    private var lastReminderTime: Date?
+    private let servicesEnabled: Bool
     private var timer: Timer?
     private var currentDateString: String = ""
 
-    private let fileURL: URL = {
+    private lazy var fileURL: URL = {
         let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         let appSupportDir = urls[0].appendingPathComponent("com.antigravity.TimeTracker")
         if !FileManager.default.fileExists(atPath: appSupportDir.path) {
@@ -106,9 +108,12 @@ class TimeManager: ObservableObject {
         return appSupportDir.appendingPathComponent("records.json")
     }()
 
-    init() {
+    init(startServices: Bool = true) {
+        servicesEnabled = startServices
         self.currentDateString = TimeManager.getDateString(for: Date())
         
+        guard startServices else { return }
+
         if #available(macOS 13.0, *) {
             self.launchAtLogin = SMAppService.mainApp.status == .enabled
         }
@@ -154,7 +159,13 @@ class TimeManager: ObservableObject {
     }
     
     func setupNotifications() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        let center = UNUserNotificationCenter.current()
+        WindowManager.shared.timeManager = self
+        let restAction = UNNotificationAction(identifier: "start-rest", title: appLanguage == "en" ? "Start break" : "开始休息", options: [])
+        center.setNotificationCategories([UNNotificationCategory(identifier: "rest-reminder", actions: [restAction], intentIdentifiers: [], options: [])])
+        center.requestAuthorization(options: [.alert, .sound]) { _, error in
+            if let error = error { print("Notification authorization failed: \(error)") }
+        }
     }
     
     private func toggleLaunchAtLogin(enabled: Bool) {
@@ -179,7 +190,7 @@ class TimeManager: ObservableObject {
         if isWorking {
             isWorking = false
             currentSessionStartTime = Date()
-            lastReminderTime = nil
+            resetReminderState()
             updateStatusText()
         }
     }
@@ -188,6 +199,7 @@ class TimeManager: ObservableObject {
         if !isWorking {
             isWorking = true
             currentSessionStartTime = Date()
+            resetReminderState()
             updateStatusText()
         }
     }
@@ -204,7 +216,7 @@ class TimeManager: ObservableObject {
     func toggleWorkStatus() {
         isWorking.toggle()
         currentSessionStartTime = Date()
-        lastReminderTime = nil
+        resetReminderState()
         updateStatusText()
     }
     
@@ -237,13 +249,25 @@ class TimeManager: ObservableObject {
             if currentHourDouble >= lunchStartHour && currentHourDouble < lunchEndHour {
                 // If focus mode is active, let focus mode run, but suspend normal tracking.
                 if !isFocusModeActive {
-                    statusText = isEN ? "Lunch Break (Exempt)" : "午休免记录中 ☕️"
+                    if !isLunchBreakExempt {
+                        isLunchBreakExempt = true
+                        resetReminderState()
+                    }
+                    currentSessionStartTime = now
+                    currentSessionElapsed = 0
+                    statusText = isEN ? "Lunch Break" : "午休中 ☕️"
                     saveCurrentSession()
                     return // Bypasses both work and rest incrementation!
                 }
             }
         }
         
+        if isLunchBreakExempt {
+            isLunchBreakExempt = false
+            currentSessionStartTime = now
+            resetReminderState()
+        }
+        currentSessionElapsed = max(0, now.timeIntervalSince(currentSessionStartTime))
         let hour = Calendar.current.component(.hour, from: now)
         let isAM = hour < 12
         
@@ -267,45 +291,80 @@ class TimeManager: ObservableObject {
             }
             
             let sessionElapsed = now.timeIntervalSince(currentSessionStartTime)
-            statusText = "休息中 (" + formatTimeInterval(sessionElapsed) + ")"
+            statusText = (isEN ? "Resting (" : "休息中 (") + formatTimeInterval(sessionElapsed) + ")"
         }
         
         saveCurrentSession()
     }
 
     func checkReminders(sessionElapsed: TimeInterval) {
-        guard restReminderEnabled && isWorking else { return }
-        
-        let intervalSecs = restReminderInterval * 60
-        if sessionElapsed >= intervalSecs {
-            let timeSinceLastReminder = lastReminderTime.map { Date().timeIntervalSince($0) } ?? intervalSecs
-            
-            if timeSinceLastReminder >= intervalSecs {
-                triggerReminder()
-                lastReminderTime = Date()
-            }
-        } else {
-            lastReminderTime = nil
+        currentSessionElapsed = max(0, sessionElapsed)
+        guard let level = reminderSchedule.nextReminder(elapsed: sessionElapsed, enabled: restReminderEnabled, isWorking: isWorking) else { return }
+        switch level {
+        case .gentle:
+            sendRestNotification(sessionElapsed: sessionElapsed, level: .gentle)
+        case .strong:
+            sendRestNotification(sessionElapsed: sessionElapsed, level: .strong)
+            isReminderPreview = false
+            isRestReminderPresented = true
+            NotificationCenter.default.post(name: .init("ShowRestPopup"), object: self)
         }
     }
 
-    func triggerReminder() {
-        let isEN = appLanguage == "en"
-        if reminderStyle == .notification {
-            let content = UNMutableNotificationContent()
-            content.title = isEN ? "Rest Reminder ☕️" : "休息提醒 ☕️"
-            content.body = isEN ? 
-                "You have been working continuously for \(Int(restReminderInterval)) minutes. Take a break!" :
-                "您已经连续工作了 \(Int(restReminderInterval)) 分钟，起来活动一下吧！"
-            content.sound = .default
-            
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-            UNUserNotificationCenter.current().add(request)
-        } else {
-            NotificationCenter.default.post(name: NSNotification.Name("ShowRestPopup"), object: nil)
+    static func restReminderContent(sessionElapsed: TimeInterval, level: RestReminderLevel, language: String) -> UNMutableNotificationContent {
+        let isEN = language == "en"
+        let content = UNMutableNotificationContent()
+        content.title = level == .strong ? (isEN ? "Time to recharge" : "该起身休息了") : (isEN ? "Time for a short break" : "给自己一个小休息")
+        let minutes = Int(max(0, sessionElapsed) / 60)
+        content.body = isEN ? "You have worked for \(minutes) minutes. Look away from the screen and stretch." : "已经连续工作 \(minutes) 分钟，看看远处，伸展一下吧。"
+        content.categoryIdentifier = "rest-reminder"
+        content.userInfo = ["level": level == .strong ? "strong" : "gentle"]
+        // Keep Notification Center current while the strong panel supplies the alert.
+        content.interruptionLevel = level == .strong ? .passive : .active
+        return content
+    }
+
+    private func sendRestNotification(sessionElapsed: TimeInterval, level: RestReminderLevel) {
+        guard servicesEnabled else { return }
+        let content = Self.restReminderContent(sessionElapsed: sessionElapsed, level: level, language: appLanguage)
+        let request = UNNotificationRequest(identifier: "rest-reminder", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error { print("Failed to deliver rest reminder: \(error)") }
         }
     }
-    
+
+    func beginRest() {
+        if isFocusModeActive { stopFocusMode() }
+        if isWorking { toggleWorkStatus() }
+        else { resetReminderState() }
+    }
+
+    func snoozeRestReminder() {
+        reminderSchedule.snooze(elapsed: currentSessionElapsed)
+        hideRestReminder()
+    }
+
+    func previewRestReminder() {
+        isReminderPreview = true
+        isRestReminderPresented = true
+        NotificationCenter.default.post(name: .init("ShowRestPopup"), object: self)
+    }
+
+    func hideRestReminder() {
+        isRestReminderPresented = false
+        isReminderPreview = false
+        NotificationCenter.default.post(name: .init("DismissRestPopup"), object: self)
+    }
+
+    private func resetReminderState() {
+        currentSessionElapsed = 0
+        reminderSchedule.reset()
+        hideRestReminder()
+        if servicesEnabled {
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["rest-reminder"])
+        }
+    }
+
     private func triggerIdleNotification() {
         let isEN = appLanguage == "en"
         let content = UNMutableNotificationContent()
@@ -350,12 +409,13 @@ class TimeManager: ObservableObject {
             workPMToday = 0
             restAMToday = 0
             restPMToday = 0
-            lastReminderTime = nil
+            resetReminderState()
             currentSessionStartTime = Date()
         }
     }
 
     func saveCurrentSession() {
+        guard servicesEnabled else { return }
         var records: [String: DailyRecord] = [:]
         if let data = try? Data(contentsOf: fileURL),
            let existingRecords = try? JSONDecoder().decode([String: DailyRecord].self, from: data) {
@@ -400,6 +460,7 @@ class TimeManager: ObservableObject {
     // MARK: - Focus Mode Logic
     
     func startFocusMode(minutes: Int) {
+        if !isWorking { toggleWorkStatus() }
         isFocusModeActive = true
         focusDuration = TimeInterval(minutes * 60)
         focusTimeRemaining = focusDuration
@@ -460,6 +521,12 @@ class TimeManager: ObservableObject {
     }
     
     func getRecordsForLast(days: Int) -> [DailyRecord] {
+        guard servicesEnabled else {
+            return (0..<max(0, days)).reversed().map { offset in
+                let date = Calendar.current.date(byAdding: .day, value: -offset, to: Date()) ?? Date()
+                return DailyRecord(dateString: Self.getDateString(for: date), totalWorkTime: 0, totalRestTime: 0)
+            }
+        }
         var recordsList: [DailyRecord] = []
         saveCurrentSession()
         

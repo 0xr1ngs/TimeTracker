@@ -44,8 +44,8 @@ struct ChartsView: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             VStack(alignment: .leading, spacing: 2) {
-                Text(isEN ? "Weekly Summary 📊" : "周度概况 📊")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                Text(isEN ? "Weekly summary" : "把一周的努力，看得更清楚")
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .foregroundColor(.primary)
                 Text(isEN ? "Time allocation trends over the last 7 days" : "过去 7 天内时间分配的演进趋势")
                     .font(.system(size: 12))
@@ -121,6 +121,18 @@ struct ChartsView: View {
                 }
                 .chartLegend(.hidden)
                 .frame(maxHeight: .infinity)
+                .overlay {
+                    if chartItems.allSatisfy({ $0.hours == 0 }) {
+                        VStack(spacing: 10) {
+                            Image(systemName: "chart.bar.xaxis").font(.system(size: 30)).foregroundColor(.blue.opacity(0.7))
+                            Text(isEN ? "Your week starts here" : "每一段投入，都会被记住")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text(isEN ? "Your work and breaks will appear as you use TimeTracker." : "开始记录工作与休息后，这里会显示你的每周节奏。")
+                                .font(.system(size: 12)).foregroundColor(.secondary)
+                        }
+                        .padding(20).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
+                    }
+                }
                 
                 // Legend (covering all 4 colors displayed in chart)
                 HStack(spacing: 12) {
@@ -132,15 +144,9 @@ struct ChartsView: View {
                 }
                 .padding(.top, 4)
             }
-            .padding(18)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(VisualEffectBlur(material: .popover, blendingMode: .withinWindow))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
+            .dashboardCard()
+
         }
         .padding(.horizontal, 24)
         .padding(.top, 16)
@@ -197,7 +203,8 @@ struct SummaryMiniCard: View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 13)) // Enlarged
-                .foregroundColor(color)
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(color)
                 .frame(width: 24, height: 24)
                 .background(color.opacity(0.1))
                 .clipShape(Circle())
@@ -212,14 +219,7 @@ struct SummaryMiniCard: View {
             }
             Spacer()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(VisualEffectBlur(material: .popover, blendingMode: .withinWindow))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-        )
+        .dashboardCard(padding: 14)
     }
 }
 

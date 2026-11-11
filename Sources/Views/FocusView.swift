@@ -2,218 +2,94 @@ import SwiftUI
 
 struct FocusView: View {
     @ObservedObject var timeManager: TimeManager
-    @State private var selectedMinutes: Int = 25
-    
-    let presets = [15, 25, 45, 60]
-    
+    @State private var selectedMinutes = 25
     private var isEN: Bool { timeManager.appLanguage == "en" }
-    
-    // Clean System Blue theme to match the rest of the app's colors
-    let themeColor = Color.blue
-    
+    private var active: Bool { timeManager.isFocusModeActive }
+    private var progress: Double { active ? timeManager.focusProgress : Double(selectedMinutes) / 60 }
+
     var body: some View {
-        VStack(spacing: 6) {
-            // Header (Completely compact to prevent any overflow)
-            HStack {
-                Text(isEN ? "Focus Timer ⏱️" : "番茄专注 ⏱️")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundColor(.primary)
-                Spacer()
-            }
-            .padding(.bottom, 2)
-            
-            if timeManager.isFocusModeActive {
-                // Focus Active Screen
-                VStack(spacing: 12) {
-                    Spacer(minLength: 2)
+        ScrollView {
+            VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(isEN ? "One thing at a time" : "一次，只专注一件事")
+                        .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    Text(isEN ? "Choose your time. Find your flow." : "选一段时间，把注意力交给当下。")
+                        .font(.system(size: 12)).foregroundColor(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(spacing: 20) {
                     ZStack {
-                        // Dial ticks
                         ForEach(0..<60) { tick in
-                            Rectangle()
-                                .fill(tick % 5 == 0 ? themeColor.opacity(0.4) : themeColor.opacity(0.12))
-                                .frame(width: tick % 5 == 0 ? 2 : 1, height: tick % 5 == 0 ? 6 : 3)
-                                .offset(y: -70)
-                                .rotationEffect(.degrees(Double(tick) * 6))
+                            Capsule().fill(Color.primary.opacity(tick % 5 == 0 ? 0.25 : 0.09))
+                                .frame(width: tick % 5 == 0 ? 2 : 1, height: tick % 5 == 0 ? 9 : 4)
+                                .offset(y: -111).rotationEffect(.degrees(Double(tick) * 6))
                         }
-                        
-                        Circle()
-                            .fill(themeColor.opacity(0.04))
-                            .frame(width: 140, height: 140)
-                        
-                        Circle()
-                            .stroke(themeColor.opacity(0.08), lineWidth: 6)
-                            .frame(width: 130, height: 130)
-                        
-                        Circle()
-                            .trim(from: 0, to: CGFloat(timeManager.focusTimeRemaining / (Double(selectedMinutes) * 60)))
-                            .stroke(
-                                themeColor,
-                                style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                            )
-                            .frame(width: 130, height: 130)
-                            .rotationEffect(.degrees(-90))
-                            .animation(.linear(duration: 1.0), value: timeManager.focusTimeRemaining)
-                        
-                        // Active Text Info
-                        VStack(spacing: 2) {
-                            Text("🐻💤")
-                                .font(.system(size: 20))
-                            Text(formatCountdown(timeManager.focusTimeRemaining))
-                                .font(.system(size: 26, weight: .bold, design: .monospaced))
-                                .foregroundColor(.primary)
-                            Text(isEN ? "Focusing" : "专注中")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .frame(width: 160, height: 160)
-                    
-                    Spacer(minLength: 2)
-                    
-                    Button(action: {
-                        timeManager.stopFocusMode()
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "stop.fill").font(.caption)
-                            Text(isEN ? "Stop Focus Session" : "放弃此次专注")
-                        }
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(Color.pink.gradient)
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Spacer(minLength: 2)
-                }
-                .frame(maxHeight: .infinity)
-            } else {
-                // Focus Idle Screen: Apple Watch Rotary Circular Slider Dial
-                VStack(spacing: 12) {
-                    Spacer(minLength: 2)
-                    
-                    ZStack {
-                        // Chronograph ticks
-                        ForEach(0..<60) { tick in
-                            Rectangle()
-                                .fill(tick % 5 == 0 ? Color.primary.opacity(0.2) : Color.primary.opacity(0.06))
-                                .frame(width: tick % 5 == 0 ? 2 : 1, height: tick % 5 == 0 ? 6 : 3)
-                                .offset(y: -70)
-                                .rotationEffect(.degrees(Double(tick) * 6))
-                        }
-                        
-                        // Solid guide ring
-                        Circle()
-                            .stroke(themeColor.opacity(0.08), lineWidth: 8)
-                            .frame(width: 130, height: 130)
-                        
-                        // Idle Progress Ring (1 full rotation = exactly 60 minutes)
-                        Circle()
-                            .trim(from: 0, to: CGFloat(min(Double(selectedMinutes) / 60.0, 1.0)))
-                            .stroke(
-                                themeColor.opacity(0.7),
-                                style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                            )
-                            .frame(width: 130, height: 130)
-                            .rotationEffect(.degrees(-90))
-                            .animation(.spring(), value: selectedMinutes)
-                        
-                        // Fully transparent overlay covering the entire area to capture Drag gestures smoothly
-                        Circle()
-                            .fill(Color.white.opacity(0.001))
-                            .frame(width: 140, height: 140)
-                            .gesture(
-                                DragGesture(minimumDistance: 0)
-                                    .onChanged { value in
-                                        let center = CGPoint(x: 70, y: 70)
-                                        let vector = CGVector(dx: value.location.x - center.x, dy: value.location.y - center.y)
-                                        let angle = atan2(vector.dy, vector.dx)
-                                        var degrees = angle * 180 / .pi
-                                        if degrees < 0 { degrees += 360 }
-                                        // Offset 90 degrees to align 12 o'clock as start point
-                                        degrees = (degrees + 90).truncatingRemainder(dividingBy: 360)
-                                        
-                                        // 360 degrees maps directly to 5...60 minutes (making dragging follow mouse perfectly!)
-                                        let rawMins = Int(degrees / 360 * 55) + 5
-                                        let clampedMins = max(5, min(60, rawMins))
-                                        selectedMinutes = (clampedMins / 5) * 5
+                        Circle().stroke(Color.blue.opacity(0.08), lineWidth: 11).frame(width: 198, height: 198)
+                        Circle().trim(from: 0, to: min(1, max(0, progress)))
+                            .stroke(Color.blue.gradient, style: StrokeStyle(lineWidth: 11, lineCap: .round))
+                            .frame(width: 198, height: 198).rotationEffect(.degrees(-90))
+                        if !active {
+                            Circle().fill(.clear).contentShape(Circle()).frame(width: 230, height: 230)
+                                .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                                    let angle = atan2(value.location.y - 115, value.location.x - 115) * 180 / .pi
+                                    let degrees = (angle + 450).truncatingRemainder(dividingBy: 360)
+                                    selectedMinutes = max(5, min(60, Int((degrees / 360 * 12).rounded()) * 5))
+                                })
+                                .accessibilityLabel(isEN ? "Focus duration" : "专注时长")
+                                .accessibilityValue("\(selectedMinutes)")
+                                .accessibilityAdjustableAction { direction in
+                                    switch direction {
+                                    case .increment: selectedMinutes = min(60, selectedMinutes + 5)
+                                    case .decrement: selectedMinutes = max(5, selectedMinutes - 5)
+                                    @unknown default: break
                                     }
-                            )
-                        
-                        // Center Display Info
-                        VStack(spacing: 2) {
-                            Text("🦊")
-                                .font(.system(size: 24))
-                            Text("\(selectedMinutes)")
-                                .font(.system(size: 44, weight: .bold, design: .rounded))
-                                .foregroundColor(.primary)
-                                .monospacedDigit()
-                            Text(isEN ? "Mins" : "分钟")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.secondary)
+                                }
                         }
+                        VStack(spacing: 8) {
+                            Image(systemName: active ? "brain.head.profile" : "timer").foregroundColor(.blue)
+                                .font(.system(size: 22, weight: .medium))
+                            Text(active ? countdown(timeManager.focusTimeRemaining) : "\(selectedMinutes)")
+                                .font(.system(size: active ? 38 : 54, weight: .medium, design: .rounded)).monospacedDigit()
+                            Text(active ? (isEN ? "Stay with your focus" : "保持专注，慢慢来") : (isEN ? "MINUTES" : "分钟"))
+                                .font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                        }.allowsHitTesting(false)
                     }
-                    .frame(width: 160, height: 160)
-                    
-                    Text(isEN ? "🎡 Drag along the circle to select minutes" : "🎡 拖拽圆环可自由调整时间")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.secondary)
-                        .padding(.top, -2)
-                    
-                    Spacer(minLength: 2)
-                    
-                    // Quick presets row
-                    HStack(spacing: 12) {
-                        ForEach(presets, id: \.self) { preset in
-                            Button(action: {
-                                selectedMinutes = preset
-                            }) {
-                                Text("\(preset)m")
-                                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                                    .foregroundColor(selectedMinutes == preset ? .white : .primary)
-                                    .frame(width: 44, height: 26)
-                                    .background(selectedMinutes == preset ? themeColor.gradient : Color.primary.opacity(0.06).gradient)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .frame(width: 240, height: 240)
+                    .scaleEffect(0.85).frame(width: 204, height: 204).padding(.top, 4)
+
+                    if !active {
+                        HStack(spacing: 10) {
+                            ForEach([15, 25, 45, 60], id: \.self) { minutes in
+                                Button { selectedMinutes = minutes } label: {
+                                    Text("\(minutes) min").font(.system(size: 13, weight: .medium))
+                                        .padding(.horizontal, 14).padding(.vertical, 9)
+                                        .foregroundColor(selectedMinutes == minutes ? .blue : .secondary)
+                                        .background(selectedMinutes == minutes ? Color.blue.opacity(0.1) : Color.primary.opacity(0.035), in: Capsule())
+                                }.buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                        Text(isEN ? "Drag the dial, or choose a preset." : "拖动圆环，或选择一个常用时长。")
+                            .font(.system(size: 12)).foregroundColor(.secondary)
                     }
-                    
-                    Spacer(minLength: 2)
-                    
-                    // Start Button
-                    Button(action: {
-                        timeManager.startFocusMode(minutes: selectedMinutes)
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "play.fill").font(.caption)
-                            Text(isEN ? "Begin Focus" : "开始专注旅行")
-                        }
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 48)
-                        .padding(.vertical, 10)
-                        .background(themeColor.gradient)
-                        .clipShape(Capsule())
-                        .shadow(color: themeColor.opacity(0.2), radius: 4, x: 0, y: 2)
+                    Button {
+                        if active { timeManager.stopFocusMode() }
+                        else { timeManager.startFocusMode(minutes: selectedMinutes) }
+                    } label: {
+                        Label(active ? (isEN ? "End focus" : "结束此次专注") : (isEN ? "Begin focus" : "开始专注"), systemImage: active ? "stop.fill" : "play.fill")
+                            .font(.system(size: 14, weight: .semibold)).frame(width: 210).padding(.vertical, 5)
                     }
-                    .buttonStyle(.plain)
-                    
-                    Spacer(minLength: 2)
+                    .buttonStyle(PrimaryActionStyle(color: active ? .pink : .blue))
                 }
-                .frame(maxHeight: .infinity)
+                .frame(maxWidth: .infinity).dashboardCard(padding: 20)
+                Label(isEN ? "Rest reminders keep running during focus." : "专注期间，休息提醒仍会按时照顾你。", systemImage: "leaf")
+                    .font(.system(size: 12)).foregroundColor(.secondary)
             }
+            .padding(.horizontal, 24).padding(.top, 4).padding(.bottom, 24)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 14)
-        .padding(.bottom, 16)
     }
-    
-    func formatCountdown(_ interval: TimeInterval) -> String {
-        let minutes = Int(interval) / 60
-        let seconds = Int(interval) % 60
-        return String(format: "%02d:%02d", minutes, seconds)
+
+    private func countdown(_ interval: TimeInterval) -> String {
+        let seconds = max(0, Int(interval))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
     }
 }
