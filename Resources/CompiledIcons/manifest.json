@@ -1,0 +1,20 @@
+{
+  "iconName": "AppIconReference",
+  "sourceFiles": {
+    "Contents.json": "fd62c72482a200be31beefeacd22582182828322e523947c8d778ac34d4f1c1b",
+    "icon_128x128.png": "c7f92076507381a9a880ae4a277eb70c1e47c83a2bbfba737f5efd97f7a93ca9",
+    "icon_128x128@2x.png": "9b9dd3e7acfbc024672f20ea60fdd44240b7afb17f741721d0ac789af60c92f9",
+    "icon_16x16.png": "d0bd334f2a9d98b26d63e64e5460649a66489befb73bff9f82dbafc688af25ff",
+    "icon_16x16@2x.png": "3d66383e98cea74d9512c848cd5738805faa25e7b32483014550fb38e694ff0d",
+    "icon_256x256.png": "9b9dd3e7acfbc024672f20ea60fdd44240b7afb17f741721d0ac789af60c92f9",
+    "icon_256x256@2x.png": "b964c2b8c134973a2ce8de3ccbac5f85766fb20f8dc3ec4cdb51321079fc236b",
+    "icon_32x32.png": "64c6ec252899d937d76dddee8990af107b012582dca92e9ed115e8d7b9d9668d",
+    "icon_32x32@2x.png": "e6899eb46e70a1ad0c4d24f87cd04c397c9bcc84ec26136ceb1662ee95594ba8",
+    "icon_512x512.png": "b964c2b8c134973a2ce8de3ccbac5f85766fb20f8dc3ec4cdb51321079fc236b",
+    "icon_512x512@2x.png": "394d59d8a1fb0601f3b85b027967bf192bbb77e4a58853a3fb6fd57a022d4568"
+  },
+  "assetsSHA256": "3b4a05ddd25c518afe8b0dfff1f9cb662ff75ab28640d5ab09f4107711e629dd",
+  "xcode": "Xcode 26.6\nBuild version 17F113",
+  "buildCommit": "18e4149d2fbaf6f7c541e1a1785e1387576ff9cd",
+  "buildRunURL": "https://github.com/0xr1ngs/TimeTracker/actions/runs/43148093271"
+}

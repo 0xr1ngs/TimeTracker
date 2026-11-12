@@ -95,3 +95,22 @@ Work continuously for 30 minutes to receive a quiet system notification. At 60 m
 Run `bash Tests/run_checks.sh` for reminder regressions and offscreen UI previews in `build/previews/`. Tests do not start background services or read real records.
 
 For a local Finder icon matching the installed reference, use `MATCH_REFERENCE_FINDER_ICON=1 ./build.sh`. This adds Finder metadata after signing and verification; strict signature checks reject that metadata. Omit the option for distribution. See `Resources/AppIconReference.md`.
+
+## Notification icon checks
+
+The manual build includes a source-checked, Xcode-compiled native icon catalog plus
+an ICNS fallback. A full Xcode installation is only required to regenerate icon
+resources: `bash Resources/compile_app_icon.sh Resources/CompiledIcons`.
+After building, run `python3 Tests/check_bundle.py TimeTracker.app` to validate the
+bundled catalog, fallback icon, signature and deployment target.
+
+Use **Settings > Test system notification** to check a real, quiet notification.
+Its subtitle contains the version and build number. Finder previews and the
+prominent in-app reminder card do not verify the system notification icon.
+
+Starting with 1.1 (5), the stable bundle ID is `com.antigravity.TimeTracker.macOS`,
+avoiding the affected legacy notification identity. First launch imports legacy
+preferences once without overwriting existing new preferences. History stays in
+its original directory, and notification permission must be granted again.
+Before replacing a legacy installation, turn off its launch-at-login option;
+the new app restores the migrated login preference through SMAppService.

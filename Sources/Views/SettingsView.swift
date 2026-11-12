@@ -67,10 +67,19 @@ struct SettingsView: View {
                     Text(isEN ? "After one hour, repeat every 15 minutes. You can snooze for 10 minutes or start a break." : "超过一小时后，每 15 分钟提醒一次；可选择开始休息，或 10 分钟后再提醒。")
                         .font(.system(size: 12)).foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Button { timeManager.previewRestReminder() } label: {
-                        Label(isEN ? "Preview break card" : "预览醒目提醒", systemImage: "rectangle.on.rectangle")
+                    HStack(spacing: 10) {
+                        Button { timeManager.previewRestReminder() } label: {
+                            Label(isEN ? "Preview break card" : "预览醒目提醒", systemImage: "rectangle.on.rectangle")
+                        }
+                        Button { timeManager.previewSystemNotification() } label: {
+                            Label(isEN ? "Test system notification" : "测试系统通知", systemImage: "bell")
+                        }
                     }
                     .buttonStyle(.bordered)
+                    if let status = timeManager.notificationPreviewStatus {
+                        Text(status).font(.system(size: 12)).foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .padding(.vertical, 8)
                 .opacity(timeManager.restReminderEnabled ? 1 : 0.6)

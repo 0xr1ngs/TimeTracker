@@ -11,9 +11,19 @@ class WindowManager: NSObject, UNUserNotificationCenterDelegate {
     var onboardingWindow: NSWindow?
     weak var timeManager: TimeManager?
     
-    override init() {
-        super.init()
-        UNUserNotificationCenter.current().delegate = self
+    private(set) var hasFinishedLaunching = false
+
+    func prepareNotifications(for manager: TimeManager) {
+        timeManager = manager
+        if hasFinishedLaunching { manager.setupNotifications() }
+    }
+
+    func didFinishAppLaunch() {
+        AppRegistration.registerForNotifications()
+        AppIdentity.restoreLoginItemIfNeeded()
+        timeManager?.refreshLoginItemStatus()
+        hasFinishedLaunching = true
+        timeManager?.setupNotifications()
     }
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -118,12 +128,21 @@ class WindowManager: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
+final class TimeTrackerAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        WindowManager.shared.didFinishAppLaunch()
+    }
+}
+
 @main
 struct TimeTrackerApp: App {
-    @StateObject private var timeManager = TimeManager()
+    @NSApplicationDelegateAdaptor(TimeTrackerAppDelegate.self) private var appDelegate
+    @StateObject private var timeManager: TimeManager
     
     init() {
-        // Install the notification delegate before any windows are opened.
+        AppIdentity.prepareForLaunch()
+        _timeManager = StateObject(wrappedValue: TimeManager())
+        // Set up window actions now; notifications are configured after AppKit launches.
         _ = WindowManager.shared
         NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowRestPopup"), object: nil, queue: .main) { notification in
             guard let manager = notification.object as? TimeManager else { return }

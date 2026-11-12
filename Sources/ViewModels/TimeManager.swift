@@ -41,6 +41,7 @@ class TimeManager: ObservableObject {
     @Published var currentSessionElapsed: TimeInterval = 0
     @Published var isRestReminderPresented = false
     @Published var isReminderPreview = false
+    @Published var notificationPreviewStatus: String?
     @Published var isLunchBreakExempt = false
     @Published private(set) var reminderSchedule = RestReminderSchedule()
 
@@ -96,6 +97,7 @@ class TimeManager: ObservableObject {
     
     private var currentSessionStartTime: Date = Date()
     private let servicesEnabled: Bool
+    private var didSetupNotifications = false
     private var timer: Timer?
     private var currentDateString: String = ""
 
@@ -120,7 +122,7 @@ class TimeManager: ObservableObject {
         
         loadDailyData()
         setupObservers()
-        setupNotifications()
+        WindowManager.shared.prepareNotifications(for: self)
         startTimer()
         
         DispatchQueue.main.async {
@@ -159,15 +161,30 @@ class TimeManager: ObservableObject {
     }
     
     func setupNotifications() {
+        guard servicesEnabled, !didSetupNotifications else { return }
+        didSetupNotifications = true
         let center = UNUserNotificationCenter.current()
-        WindowManager.shared.timeManager = self
+        center.delegate = WindowManager.shared
         let restAction = UNNotificationAction(identifier: "start-rest", title: appLanguage == "en" ? "Start break" : "开始休息", options: [])
         center.setNotificationCategories([UNNotificationCategory(identifier: "rest-reminder", actions: [restAction], intentIdentifiers: [], options: [])])
-        center.requestAuthorization(options: [.alert, .sound]) { _, error in
-            if let error = error { print("Notification authorization failed: \(error)") }
+        center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
+            if let error = error {
+                print("Notification authorization failed: \(error)")
+                return
+            }
+            if granted && ProcessInfo.processInfo.arguments.contains("--notification-icon-test") {
+                DispatchQueue.main.async { self?.previewSystemNotification() }
+            }
         }
     }
     
+    func refreshLoginItemStatus() {
+        guard servicesEnabled else { return }
+        if #available(macOS 13.0, *) {
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
+    }
+
     private func toggleLaunchAtLogin(enabled: Bool) {
         if #available(macOS 13.0, *) {
             do {
@@ -342,6 +359,45 @@ class TimeManager: ObservableObject {
     func snoozeRestReminder() {
         reminderSchedule.snooze(elapsed: currentSessionElapsed)
         hideRestReminder()
+    }
+
+    static func notificationPreviewContent(language: String) -> UNMutableNotificationContent {
+        let isEN = language == "en"
+        let content = UNMutableNotificationContent()
+        content.title = isEN ? "Notification icon test" : "通知图标测试"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev"
+        content.subtitle = "TimeTracker \(version) (\(build))"
+        content.body = isEN ? "Check that this notification shows the blue TimeTracker icon." : "请检查这条系统通知左侧是否显示蓝色 TimeTracker 图标。"
+        return content
+    }
+
+    func previewSystemNotification() {
+        guard servicesEnabled else { return }
+        let isEN = appLanguage == "en"
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { [weak self] settings in
+            guard let self = self else { return }
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                DispatchQueue.main.async {
+                    self.notificationPreviewStatus = isEN ? "Allow TimeTracker notifications in System Settings, then try again." : "请在系统设置中允许 TimeTracker 发送通知后重试。"
+                }
+                return
+            }
+            let content = Self.notificationPreviewContent(language: isEN ? "en" : "zh")
+            let request = UNNotificationRequest(identifier: "notification-icon-preview", content: content, trigger: nil)
+            center.add(request) { error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        self.notificationPreviewStatus = (isEN ? "Notification failed: " : "发送失败：") + error.localizedDescription
+                    } else {
+                        self.notificationPreviewStatus = isEN ? "Test notification sent. Open Notification Center to check its icon." : "测试通知已发送，请打开通知中心检查图标。"
+                    }
+                    print(self.notificationPreviewStatus ?? "")
+                    fflush(stdout)
+                }
+            }
+        }
     }
 
     func previewRestReminder() {

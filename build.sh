@@ -13,6 +13,12 @@ if [ ! -f "Resources/AppIconReference.icns" ]; then
     exit 1
 fi
 
+if [ ! -f "Resources/CompiledIcons/Assets.car" ]; then
+    echo "Missing native icon catalog. Regenerate with Resources/compile_app_icon.sh." >&2
+    exit 1
+fi
+python3 Resources/install_compiled_icon.py --validate
+
 echo "Cleaning up previous build directories..."
 rm -rf "$APP_DIR"
 
@@ -23,16 +29,18 @@ mkdir -p "$RESOURCES_DIR"
 echo "Copying Info.plist and patching bundle identifiers..."
 cp Info.plist "$APP_DIR/Contents/Info.plist"
 sed -i '' 's/$(EXECUTABLE_NAME)/TimeTracker/g' "$APP_DIR/Contents/Info.plist"
-sed -i '' 's/$(PRODUCT_BUNDLE_IDENTIFIER)/com.antigravity.TimeTracker/g' "$APP_DIR/Contents/Info.plist"
+sed -i '' 's/$(PRODUCT_BUNDLE_IDENTIFIER)/com.antigravity.TimeTracker.macOS/g' "$APP_DIR/Contents/Info.plist"
 sed -i '' 's/$(PRODUCT_NAME)/TimeTracker/g' "$APP_DIR/Contents/Info.plist"
 sed -i '' 's/$(DEVELOPMENT_LANGUAGE)/en/g' "$APP_DIR/Contents/Info.plist"
 
 cp Resources/AppIconReference.icns "$RESOURCES_DIR/AppIconReference.icns"
+python3 Resources/install_compiled_icon.py "$APP_DIR"
 
 echo "Compiling Swift source files..."
 SWIFT_FILES=$(find Sources -name "*.swift")
 swiftc \
     -parse-as-library \
+    -target "$(uname -m)-apple-macosx${MACOSX_DEPLOYMENT_TARGET:-13.0}" \
     -framework SwiftUI \
     -framework AppKit \
     -framework Foundation \

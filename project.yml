@@ -13,9 +13,15 @@ targets:
       path: Info.plist
       properties:
         LSUIElement: true
-        CFBundleIconFile: AppIconReference
+        CFBundleIconName: AppIconReference
+        CFBundleIconFile: AppIconReference.icns
+        CFBundleDisplayName: TimeTracker
+        CFBundleShortVersionString: "1.1"
+        CFBundleVersion: "6"
+        LSMinimumSystemVersion: "13.0"
     settings:
       base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.antigravity.TimeTracker.macOS
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIconReference
         CODE_SIGN_IDENTITY: "-"
         DEVELOPMENT_TEAM: ""

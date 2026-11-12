@@ -106,3 +106,22 @@ MATCH_REFERENCE_FINDER_ICON=1 ./build.sh
 ```
 
 此选项在正常签名并校验后添加 Finder 自定义图标元数据，严格签名校验会拒绝这些元数据；发布构建应省略该选项。图标来源及构建说明见 `Resources/AppIconReference.md`。
+
+## 系统通知图标验证
+
+手动构建会同时打包经过源码校验的 Xcode 原生图标目录和 ICNS 后备图标。
+日常编译可直接使用已提交的资源；更新图标时需要完整 Xcode：
+
+```sh
+bash Resources/compile_app_icon.sh Resources/CompiledIcons
+./build.sh
+python3 Tests/check_bundle.py TimeTracker.app
+```
+
+设置中的「测试系统通知」会真正发送一条静默通知，副标题标明版本和构建号。
+也可以通过 `--notification-icon-test` 启动参数触发。请用这条系统通知验证图标，
+Finder 图标和应用内的醒目提醒卡片预览不能代替这一检查。
+
+1.1 (5) 起使用稳定的新应用标识 `com.antigravity.TimeTracker.macOS`，避开本机旧通知身份的占位图标问题。
+首次启动会一次性导入旧标识下的偏好，保留已有新设置；计时历史继续使用原数据目录。
+系统通知需要重新允许。升级旧版本前应先关闭旧应用的「开机启动」，新版本会依据迁移的设置恢复启动项。
